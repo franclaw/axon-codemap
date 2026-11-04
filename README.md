@@ -14,7 +14,7 @@ Axon message flows (events converge on the same projection box):
 
 ![Axon command, event, and projection graph for the bike rental workshop](docs/bike-rental-axon-flow.png)
 
-[Download the generated workshop map](examples/bike-rental-workshop.html) and open it locally (GitHub displays HTML source rather than running the page). To reproduce:
+[Open the interactive workshop map on GitHub Pages](https://franclaw.github.io/axon-codemap/) or [download the standalone HTML](examples/bike-rental-workshop.html). To reproduce:
 
 ```sh
 git clone https://github.com/AxonIQ/bike-rental-workshop-2026.git
@@ -33,7 +33,9 @@ pip install .
 axon-codemap --root /path/to/java-project -o code-map.html
 ```
 
-Open `code-map.html` in a browser. The Java package graph is always shown, including for projects without Axon. An arrow means a file in the source package imports a type or static member from the destination package. Select a package to see what it uses and what uses it; search package names, files and methods, or expand a file to see methods and line numbers. Packages that use each other share a row and are marked as a cycle. Axon graphs appear when handlers are detected; select a node to trace connected flows. Event handlers belonging to the same class share one box, with multiple arrows into it. The detailed Axon list remains below the graph. Graphs scroll horizontally on narrow screens and support keyboard selection.
+Open `code-map.html` in a browser. The Java package graph is always shown, including for projects without Axon. An arrow means a file in the source package imports a type or static member from the destination package. Select a package to see what it uses and what uses it, and drill down through its files to methods. Dependency names are clickable. Search packages, files and methods; method results search the whole project. Use the public-only filter to show methods declared public (including implicit public interface methods). Packages that use each other share a row and are marked as a cycle. Axon graphs appear when handlers are detected; select a node to trace connected flows. Event handlers belonging to the same class share one box, with multiple arrows into it. The detailed Axon list remains below the graph. Graphs scroll horizontally on narrow screens and support keyboard selection.
+
+When the scanned directory is inside a Git checkout with a GitHub `origin`, method links point to the corresponding file and line at the checked-out commit. Uncommitted changes are not reflected in those links. Other projects remain fully usable without links.
 
 `--include-tests` includes test directories; otherwise `test` and `tests` directories are omitted, along with common build and vendor directories. Multi-module trees are scanned recursively; identical Java package names across modules are combined.
 

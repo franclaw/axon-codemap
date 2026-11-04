@@ -8,7 +8,7 @@ class PackageTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root=Path(tmp)
             sources={
-                'src/a/Alpha.java': 'package a; import b.Beta; import static c.Util.helper; import java.util.List; class Alpha { Alpha() {} void work() {} }',
+                'src/a/Alpha.java': 'package a; import b.Beta; import static c.Util.helper; import java.util.List; class Alpha { Alpha() {} public void work() {} private void internal() {} }',
                 'src/b/Beta.java': 'package b; import a.*; class Beta { void run() {} }',
                 'src/c/Util.java': 'package c; public class Util { static void helper() {} }',
                 'src/d/Other.java': 'package d; import c.*; class Other {}',
@@ -22,6 +22,7 @@ class PackageTests(unittest.TestCase):
             self.assertEqual(pkgs['b']['uses'],['a'])
             self.assertEqual(pkgs['d']['uses'],['c'])
             self.assertEqual(pkgs['c']['uses'],[])
-            self.assertEqual([m['name'] for m in pkgs['a']['files'][0]['methods']],['Alpha.Alpha()','Alpha.work()'])
+            self.assertEqual([m['name'] for m in pkgs['a']['files'][0]['methods']],['Alpha.Alpha()','Alpha.work()','Alpha.internal()'])
+            self.assertEqual([m['public'] for m in pkgs['a']['files'][0]['methods']], [False,True,False])
             self.assertEqual(result['commands'],[])
 if __name__=='__main__':unittest.main()

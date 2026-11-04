@@ -1,5 +1,8 @@
 import argparse
 import json
+import re
+import subprocess
+from urllib.parse import quote
 import sys
 from pathlib import Path
 from tree_sitter import Language, Parser
@@ -80,15 +83,19 @@ def scan(root, include_tests=False):
         if package not in packages:
             packages[package] = {'name': package, 'files': [], 'uses': set()}
         methods = []
-        def inventory(n, owner=''):
+        def inventory(n, owner='', interface=False):
             if n.type in TYPES:
                 name = text(n.child_by_field_name('name'), f['data'])
                 owner = f'{owner}.{name}' if owner else name
+                interface = n.type == 'interface_declaration'
             if n.type in METHODS and owner:
                 name = text(n.child_by_field_name('name'), f['data'])
                 params = text(n.child_by_field_name('parameters'), f['data'])
-                methods.append({'name': f'{owner}.{name}{params}', 'line': n.start_point.row + 1})
-            for child in n.named_children: inventory(child, owner)
+                modifiers = next((c for c in n.named_children if c.type == 'modifiers'), None)
+                modifiers_text = text(modifiers, f['data'])
+                public = bool(re.search(r'\bpublic\b', modifiers_text)) or (interface and not re.search(r'\bprivate\b', modifiers_text))
+                methods.append({'name': f'{owner}.{name}{params}', 'line': n.start_point.row + 1, 'public': public})
+            for child in n.named_children: inventory(child, owner, interface)
         inventory(f['tree'].root_node)
         packages[package]['files'].append({'path': f['path'], 'methods': methods})
     for f in files:
@@ -147,6 +154,23 @@ def scan(root, include_tests=False):
         visit(f['tree'].root_node)
     return {'commands': commands, 'consumers': consumers, 'warnings': sorted(set(warnings)), 'fileCount': len(files), 'packages': sorted(packages.values(), key=lambda p: p['name'])}
 
+def github_source(root):
+    """Resolve the scanned root to a GitHub blob URL pinned to the checked-out commit."""
+    def git(*args):
+        return subprocess.check_output(['git', '-C', str(root), *args], text=True, stderr=subprocess.DEVNULL).strip()
+    try:
+        top = Path(git('rev-parse', '--show-toplevel')).resolve()
+        rev = git('rev-parse', 'HEAD')
+        remote = git('remote', 'get-url', 'origin')
+        match = re.fullmatch(r'(?:https://github\.com/|git@github\.com:|ssh://git@github\.com/)([^/]+)/([^/]+?)(?:\.git)?/?', remote)
+        if not match: return None
+        owner, repo = match.groups()
+        relative = root.relative_to(top).as_posix()
+        prefix = '' if relative == '.' else '/' + '/'.join(quote(part, safe='') for part in relative.split('/'))
+        return f'https://github.com/{quote(owner, safe="")}/{quote(repo, safe="")}/blob/{rev}{prefix}/'
+    except (subprocess.CalledProcessError, OSError, ValueError):
+        return None
+
 def main():
     ap = argparse.ArgumentParser(description='Create a standalone Java package and Axon flow map from source.')
     ap.add_argument('-root', '--root', type=Path, default=Path('.'), help='Java project root (default: current directory)')
@@ -157,6 +181,7 @@ def main():
     if not root.is_dir(): ap.error(f'not a directory: {root}')
     model = scan(root, args.include_tests)
     model['root'] = root.name
+    model['sourceBase'] = github_source(root)
     raw = json.dumps(model, ensure_ascii=True).replace('<', '\\u003c').replace('>', '\\u003e').replace('&', '\\u0026')
     template = Path(__file__).with_name('page.html').read_text(encoding='utf-8')
     args.output.write_text(template.replace('/*__DATA__*/', raw), encoding='utf-8')
