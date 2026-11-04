@@ -40,15 +40,19 @@ def scan(root, include_tests=False):
             continue
         if tree.root_node.has_error:
             warnings.append(f'{rel}: Java syntax errors; results may be incomplete')
-        package, imports, wildcards = '', {}, []
+        package, imports, wildcards, all_imports = '', {}, [], []
         for n in tree.root_node.named_children:
             s = text(n, data)
             if n.type == 'package_declaration': package = s[len('package '):].rstrip(';').strip()
-            if n.type == 'import_declaration' and not s.startswith('import static '):
+            if n.type == 'import_declaration':
                 imp = s[len('import '):].rstrip(';').strip()
-                if imp.endswith('.*'): wildcards.append(imp[:-2])
-                else: imports[imp.split('.')[-1]] = imp
-        files.append({'path': rel.as_posix(), 'data': data, 'tree': tree, 'package': package, 'imports': imports, 'wildcards': wildcards})
+                is_static = imp.startswith('static ')
+                if is_static: imp = imp[len('static '):].strip()
+                all_imports.append(imp)
+                if not is_static:
+                    if imp.endswith('.*'): wildcards.append(imp[:-2])
+                    else: imports[imp.split('.')[-1]] = imp
+        files.append({'path': rel.as_posix(), 'data': data, 'tree': tree, 'package': package, 'imports': imports, 'wildcards': wildcards, 'all_imports': all_imports})
     declared = set()
     for f in files:
         for n in walk(f['tree'].root_node):
@@ -68,6 +72,43 @@ def scan(root, include_tests=False):
             warnings.append(f"{f['path']}: ambiguous type {name}: {', '.join(candidates)}")
             return f"?{f['path']}:{name}"
         return local
+    # Aggregate by declared Java package across modules. Dependencies are import evidence,
+    # not an attempted whole-program symbol-resolution or call graph.
+    packages = {}
+    for f in files:
+        package = f['package']
+        if package not in packages:
+            packages[package] = {'name': package, 'files': [], 'uses': set()}
+        methods = []
+        def inventory(n, owner=''):
+            if n.type in TYPES:
+                name = text(n.child_by_field_name('name'), f['data'])
+                owner = f'{owner}.{name}' if owner else name
+            if n.type in METHODS and owner:
+                name = text(n.child_by_field_name('name'), f['data'])
+                params = text(n.child_by_field_name('parameters'), f['data'])
+                methods.append({'name': f'{owner}.{name}{params}', 'line': n.start_point.row + 1})
+            for child in n.named_children: inventory(child, owner)
+        inventory(f['tree'].root_node)
+        packages[package]['files'].append({'path': f['path'], 'methods': methods})
+    for f in files:
+        for imp in f['all_imports']:
+            target = imp[:-2] if imp.endswith('.*') else imp
+            # Wildcard package imports name the package itself. Other imports,
+            # including static members and nested types, begin with a declared type.
+            dest = target if target in packages and imp.endswith('.*') else None
+            if dest is None:
+                parts = target.split('.')
+                while parts:
+                    candidate = '.'.join(parts)
+                    if candidate in declared:
+                        dest = candidate.rpartition('.')[0]
+                        break
+                    parts.pop()
+            if dest is not None and dest != f['package'] and dest in packages:
+                packages[f['package']]['uses'].add(dest)
+    for package in packages.values(): package['uses'] = sorted(package['uses'])
+
     commands, consumers = [], []
     for f in files:
         data = f['data']
@@ -104,10 +145,10 @@ def scan(root, include_tests=False):
                             consumers.append(handler)
             for child in n.named_children: visit(child, owner)
         visit(f['tree'].root_node)
-    return {'commands': commands, 'consumers': consumers, 'warnings': sorted(set(warnings)), 'fileCount': len(files)}
+    return {'commands': commands, 'consumers': consumers, 'warnings': sorted(set(warnings)), 'fileCount': len(files), 'packages': sorted(packages.values(), key=lambda p: p['name'])}
 
 def main():
-    ap = argparse.ArgumentParser(description='Create a standalone Axon command → event → event-handler map from Java source.')
+    ap = argparse.ArgumentParser(description='Create a standalone Java package and Axon flow map from source.')
     ap.add_argument('-root', '--root', type=Path, default=Path('.'), help='Java project root (default: current directory)')
     ap.add_argument('-o', '--output', type=Path, default=Path('code-map.html'))
     ap.add_argument('--include-tests', action='store_true')

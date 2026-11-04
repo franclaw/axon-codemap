@@ -1,12 +1,18 @@
 # Axon Code Map
 
-Generate a single self-contained, searchable HTML map of Java Axon command handlers → events → event handlers. A layered graph shows how the flows fit together, with a detailed source-backed list below. Inspired by [codemap](https://github.com/peterretief/codemap); this is an independent implementation, not a fork. Source stays on your machine and the resulting HTML needs no server, Java build, Java runtime, or external assets.
+Generate a standalone, searchable HTML map for **any Java project**: a layered package-dependency graph and an inventory of files, methods and constructors. For Axon applications, it also maps commands → events → event handlers. Inspired by [codemap](https://github.com/peterretief/codemap); this is an independent implementation, not a fork. Source stays on your machine and the resulting HTML needs no server, Java build, Java runtime, or external assets.
 
 ## Example: AxonIQ bike rental workshop
 
-This map was generated from [AxonIQ/bike-rental-workshop-2026](https://github.com/AxonIQ/bike-rental-workshop-2026) at commit [`8d9fdd0`](https://github.com/AxonIQ/bike-rental-workshop-2026/tree/8d9fdd09b793cec619c0a40f9f9fc7ae138741fd). The scan found 35 Java files, 8 command handlers and 8 event handlers. For example, `RegisterBikeCommand` applies `BikeRegisteredEvent`, consumed by `BikeStatusProjection`.
+This map was generated from [AxonIQ/bike-rental-workshop-2026](https://github.com/AxonIQ/bike-rental-workshop-2026) at commit [`8d9fdd0`](https://github.com/AxonIQ/bike-rental-workshop-2026/tree/8d9fdd09b793cec619c0a40f9f9fc7ae138741fd). The scan found 12 packages, 35 Java files, 8 command handlers and 8 event handlers. For example, `RegisterBikeCommand` applies `BikeRegisteredEvent`, consumed by `BikeStatusProjection`.
 
-![Axon Code Map showing the bike rental workshop command, event, and projection](docs/bike-rental-workshop.png)
+Java package dependencies:
+
+![Java package dependency graph for the bike rental workshop](docs/bike-rental-workshop.png)
+
+Axon message flows (events converge on the same projection box):
+
+![Axon command, event, and projection graph for the bike rental workshop](docs/bike-rental-axon-flow.png)
 
 [Download the generated workshop map](examples/bike-rental-workshop.html) and open it locally (GitHub displays HTML source rather than running the page). To reproduce:
 
@@ -27,7 +33,9 @@ pip install .
 axon-codemap --root /path/to/java-project -o code-map.html
 ```
 
-Open `code-map.html` in a browser. `--include-tests` includes test directories; otherwise `test` and `tests` directories are omitted, along with common build and vendor directories. Multi-module trees are scanned recursively. Search matches fully-qualified types, handler names and source paths, highlighting connected graph flows. Select a graph node (or focus it and press Enter) to trace its connections; clear the selection to return to the full map. The graph scrolls horizontally on narrow screens. Expand a command in the list to inspect its detected events and consumers. All consumers are also listed separately, including those without a detected producer.
+Open `code-map.html` in a browser. The Java package graph is always shown, including for projects without Axon. An arrow means a file in the source package imports a type or static member from the destination package. Select a package to see what it uses and what uses it; search package names, files and methods, or expand a file to see methods and line numbers. Packages that use each other share a row and are marked as a cycle. Axon graphs appear when handlers are detected; select a node to trace connected flows. Event handlers belonging to the same class share one box, with multiple arrows into it. The detailed Axon list remains below the graph. Graphs scroll horizontally on narrow screens and support keyboard selection.
+
+`--include-tests` includes test directories; otherwise `test` and `tests` directories are omitted, along with common build and vendor directories. Multi-module trees are scanned recursively; identical Java package names across modules are combined.
 
 To try the included example:
 
@@ -37,6 +45,10 @@ axon-codemap --root tests/fixtures -o example.html
 
 ## What it detects
 
+- Java packages, files, method and constructor declarations, and imports between packages declared in the scanned sources. Explicit, static and wildcard imports are considered. Third-party packages are not displayed.
+- Imports indicate a **possible dependency**, including potentially unused imports or a wildcard import for which no type is actually used. Fully qualified references without an import, build dependencies, runtime links and reflection are not traced.
+- For Axon applications:
+
 - Methods or constructors annotated `@CommandHandler`, using the first parameter as the command payload.
 - Direct `apply(new Event(...))` and `AggregateLifecycle.apply(new Event(...))` inside a command handler, including conditional branches. Each apply is shown with its source line.
 - Methods annotated `@EventHandler` as consumers. `@EventSourcingHandler` is deliberately excluded: it usually rebuilds aggregate state, not a projection. A regular event handler is a **possible** projection; Axon also uses these for other purposes.
@@ -44,7 +56,7 @@ axon-codemap --root tests/fixtures -o example.html
 
 ## Important limits
 
-The graph shows Axon message relationships, not Java package dependencies. This is a static source map, not a runtime execution trace: a shown event might only be emitted conditionally, and consumer execution is not guaranteed. It does **not** follow helper methods, variables passed to `apply`, factory methods, returned events, inheritance, event gateways, sagas, custom/composed annotations, or runtime configuration. Unrecognized apply payloads and syntax errors are reported in the page. Unscanned external types, nested types, wildcard imports, annotation payload overrides, and unusual parameter ordering may not resolve correctly. Check source paths and line numbers when interpreting the map. Do not treat missing links as proof that a relationship cannot happen.
+Both graphs are static source maps, not runtime execution traces. For Axon: a shown event might only be emitted conditionally, and consumer execution is not guaranteed. It does **not** follow helper methods, variables passed to `apply`, factory methods, returned events, inheritance, event gateways, sagas, custom/composed annotations, or runtime configuration. Unrecognized apply payloads and syntax errors are reported in the page. Unscanned external types, nested types, wildcard imports, annotation payload overrides, and unusual parameter ordering may not resolve correctly. Check source paths and line numbers when interpreting the map. Do not treat missing links as proof that a relationship cannot happen.
 
 ## Tests
 
