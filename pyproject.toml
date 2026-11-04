@@ -1,0 +1,16 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "axon-codemap"
+version = "0.1.0"
+description = "Offline source map for Java and Axon command/event flows"
+requires-python = ">=3.10"
+dependencies = ["tree-sitter>=0.23,<0.26", "tree-sitter-java>=0.23,<0.24"]
+
+[project.scripts]
+axon-codemap = "axon_codemap.cli:main"
+
+[tool.setuptools.package-data]
+axon_codemap = ["page.html"]
