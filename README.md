@@ -1,6 +1,6 @@
 # Axon Code Map
 
-Generate a single self-contained, searchable HTML map of Java Axon command handlers → events → event handlers. Inspired by [codemap](https://github.com/peterretief/codemap); this is an independent implementation, not a fork. Source stays on your machine and the resulting HTML needs no server, Java build, Java runtime, or external assets.
+Generate a single self-contained, searchable HTML map of Java Axon command handlers → events → event handlers. A layered graph shows how the flows fit together, with a detailed source-backed list below. Inspired by [codemap](https://github.com/peterretief/codemap); this is an independent implementation, not a fork. Source stays on your machine and the resulting HTML needs no server, Java build, Java runtime, or external assets.
 
 ## Example: AxonIQ bike rental workshop
 
@@ -27,7 +27,7 @@ pip install .
 axon-codemap --root /path/to/java-project -o code-map.html
 ```
 
-Open `code-map.html` in a browser. `--include-tests` includes test directories; otherwise `test` and `tests` directories are omitted, along with common build and vendor directories. Multi-module trees are scanned recursively. Search matches fully-qualified types, handler names and source paths. Expand a command to inspect its detected events and consumers. All consumers are also listed separately, including those without a detected producer.
+Open `code-map.html` in a browser. `--include-tests` includes test directories; otherwise `test` and `tests` directories are omitted, along with common build and vendor directories. Multi-module trees are scanned recursively. Search matches fully-qualified types, handler names and source paths, highlighting connected graph flows. Select a graph node (or focus it and press Enter) to trace its connections; clear the selection to return to the full map. The graph scrolls horizontally on narrow screens. Expand a command in the list to inspect its detected events and consumers. All consumers are also listed separately, including those without a detected producer.
 
 To try the included example:
 
@@ -44,7 +44,7 @@ axon-codemap --root tests/fixtures -o example.html
 
 ## Important limits
 
-This is a static source map, not a runtime execution trace: a shown event might only be emitted conditionally, and consumer execution is not guaranteed. It does **not** follow helper methods, variables passed to `apply`, factory methods, returned events, inheritance, event gateways, sagas, custom/composed annotations, or runtime configuration. Unrecognized apply payloads and syntax errors are reported in the page. Unscanned external types, nested types, wildcard imports, annotation payload overrides, and unusual parameter ordering may not resolve correctly. Check source paths and line numbers when interpreting the map. Do not treat missing links as proof that a relationship cannot happen.
+The graph shows Axon message relationships, not Java package dependencies. This is a static source map, not a runtime execution trace: a shown event might only be emitted conditionally, and consumer execution is not guaranteed. It does **not** follow helper methods, variables passed to `apply`, factory methods, returned events, inheritance, event gateways, sagas, custom/composed annotations, or runtime configuration. Unrecognized apply payloads and syntax errors are reported in the page. Unscanned external types, nested types, wildcard imports, annotation payload overrides, and unusual parameter ordering may not resolve correctly. Check source paths and line numbers when interpreting the map. Do not treat missing links as proof that a relationship cannot happen.
 
 ## Tests
 
